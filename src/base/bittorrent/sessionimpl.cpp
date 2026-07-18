@@ -5452,6 +5452,7 @@ void SessionImpl::handleTorrentContentFolderRenamingFailed(TorrentImpl *torrent,
 
 void SessionImpl::handleTorrentStorageMovingStateChanged(TorrentImpl *torrent)
 {
+    emit torrentStorageMovingStateChanged(torrent);
     emit torrentsUpdated({torrent});
 }
 

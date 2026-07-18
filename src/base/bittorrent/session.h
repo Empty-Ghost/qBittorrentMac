@@ -515,6 +515,7 @@ namespace BitTorrent
         void torrentStarted(Torrent *torrent);
         void torrentSavePathChanged(Torrent *torrent);
         void torrentSavingModeChanged(Torrent *torrent);
+        void torrentStorageMovingStateChanged(Torrent *torrent);
         void torrentTagAdded(Torrent *torrent, const Tag &tag);
         void torrentTagRemoved(Torrent *torrent, const Tag &tag);
         void torrentContentFileRenamed(Torrent *torrent, int index, const Path &oldFilePath);

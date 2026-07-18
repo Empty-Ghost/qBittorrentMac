@@ -126,7 +126,7 @@ namespace
 #define SETTINGS_KEY(name) u"GUI/" name
 #define EXECUTIONLOG_SETTINGS_KEY(name) (SETTINGS_KEY(u"Log/"_s) name)
 
-    const std::chrono::seconds PREVENT_SUSPEND_INTERVAL {60};
+    const std::chrono::minutes POWER_MANAGEMENT_RECONCILIATION_INTERVAL {10};
 
 #if defined(Q_OS_WIN)
 #if defined(Q_PROCESSOR_X86_64)
@@ -380,17 +380,32 @@ MainWindow::MainWindow(IGUIApplication *app, const WindowState initialState, con
     m_ui->menuPlugins->hide();
 #endif
 
-    // Initialise system sleep inhibition timer
-    m_preventTimer->setSingleShot(true);
+    // Reconcile system sleep inhibition periodically as a safety net. Normal
+    // state changes update it immediately through the session signals below.
+    m_preventTimer->setInterval(POWER_MANAGEMENT_RECONCILIATION_INTERVAL);
+    m_preventTimer->setTimerType(Qt::VeryCoarseTimer);
     connect(m_preventTimer, &QTimer::timeout, this, &MainWindow::updatePowerManagementState);
     connect(pref, &Preferences::changed, this, &MainWindow::updatePowerManagementState);
+
+    auto *const btSession = BitTorrent::Session::instance();
+    connect(btSession, &BitTorrent::Session::torrentsLoaded, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentAdded, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentAboutToBeRemoved, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentFinished, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentFinishedChecking, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentMetadataReceived, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentStarted, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentStopped, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentIOError, this, &MainWindow::updatePowerManagementState);
+    connect(btSession, &BitTorrent::Session::torrentStorageMovingStateChanged, this, &MainWindow::updatePowerManagementState);
     updatePowerManagementState();
+    m_preventTimer->start();
 
     // Configure BT session according to options
     loadPreferences();
 
-    connect(BitTorrent::Session::instance(), &BitTorrent::Session::statsUpdated, this, &MainWindow::loadSessionStats);
-    connect(BitTorrent::Session::instance(), &BitTorrent::Session::torrentsUpdated, this, &MainWindow::reloadTorrentStats);
+    connect(btSession, &BitTorrent::Session::statsUpdated, this, &MainWindow::loadSessionStats);
+    connect(btSession, &BitTorrent::Session::torrentsUpdated, this, &MainWindow::reloadTorrentStats);
 
     createKeyboardShortcuts();
 
@@ -1892,8 +1907,6 @@ void MainWindow::updatePowerManagementState() const
         return torrent->isMoving();
     });
     m_pwr->setActivityState(inhibitSuspend ? PowerManagement::ActivityState::Busy : PowerManagement::ActivityState::Idle);
-
-    m_preventTimer->start(PREVENT_SUSPEND_INTERVAL);
 }
 
 void MainWindow::applyTransferListFilter()
