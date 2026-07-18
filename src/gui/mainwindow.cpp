@@ -127,6 +127,10 @@ namespace
 #define EXECUTIONLOG_SETTINGS_KEY(name) (SETTINGS_KEY(u"Log/"_s) name)
 
     const std::chrono::minutes POWER_MANAGEMENT_RECONCILIATION_INTERVAL {10};
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+    const std::chrono::minutes STARTUP_UPDATE_CHECK_DELAY {5};
+    const std::chrono::hours UPDATE_CHECK_INTERVAL {24};
+#endif
 
 #if defined(Q_OS_WIN)
 #if defined(Q_PROCESSOR_X86_64)
@@ -350,10 +354,6 @@ MainWindow::MainWindow(IGUIApplication *app, const WindowState initialState, con
 
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     connect(m_ui->actionCheckForUpdates, &QAction::triggered, this, [this]() { checkProgramUpdate(true); });
-
-    // trigger an early check on startup
-    if (pref->isUpdateCheckEnabled())
-        checkProgramUpdate(false);
 #else
     m_ui->actionCheckForUpdates->setVisible(false);
 #endif
@@ -1497,8 +1497,9 @@ void MainWindow::loadPreferences()
         if (!m_programUpdateTimer)
         {
             m_programUpdateTimer = new QTimer(this);
-            m_programUpdateTimer->setInterval(24h);
+            m_programUpdateTimer->setInterval(STARTUP_UPDATE_CHECK_DELAY);
             m_programUpdateTimer->setSingleShot(true);
+            m_programUpdateTimer->setTimerType(Qt::VeryCoarseTimer);
             connect(m_programUpdateTimer, &QTimer::timeout, this, [this]() { checkProgramUpdate(false); });
             m_programUpdateTimer->start();
         }
@@ -1735,7 +1736,10 @@ void MainWindow::handleUpdateCheckFinished(ProgramUpdater *updater, const bool i
     const auto cleanup = [this, updater]()
     {
         if (m_programUpdateTimer)
+        {
+            m_programUpdateTimer->setInterval(UPDATE_CHECK_INTERVAL);
             m_programUpdateTimer->start();
+        }
         updater->deleteLater();
     };
 

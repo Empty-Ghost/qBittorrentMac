@@ -637,6 +637,7 @@ SessionImpl::SessionImpl(QObject *parent)
         , this, [this]() { m_recentErroredTorrents.clear(); });
 
     m_seedingLimitTimer->setInterval(10s);
+    m_seedingLimitTimer->setTimerType(Qt::CoarseTimer);
     connect(m_seedingLimitTimer, &QTimer::timeout, this, [this]
     {
         // We shouldn't iterate over `m_torrents` in the loop below
@@ -674,6 +675,7 @@ SessionImpl::SessionImpl(QObject *parent)
     connect(m_ioThread.get(), &QThread::finished, m_freeDiskSpaceChecker, &QObject::deleteLater);
     m_freeDiskSpaceCheckingTimer->setInterval(FREEDISKSPACE_CHECK_TIMEOUT);
     m_freeDiskSpaceCheckingTimer->setSingleShot(true);
+    m_freeDiskSpaceCheckingTimer->setTimerType(Qt::CoarseTimer);
     connect(m_freeDiskSpaceCheckingTimer, &QTimer::timeout, m_freeDiskSpaceChecker, &FreeDiskSpaceChecker::check);
     connect(m_freeDiskSpaceChecker, &FreeDiskSpaceChecker::checked, this, [this](const qint64 value)
     {
@@ -709,6 +711,7 @@ SessionImpl::SessionImpl(QObject *parent)
 
     m_updateTrackersFromURLTimer = new QTimer(this);
     m_updateTrackersFromURLTimer->setInterval(24h);
+    m_updateTrackersFromURLTimer->setTimerType(Qt::VeryCoarseTimer);
     connect(m_updateTrackersFromURLTimer, &QTimer::timeout, this, &SessionImpl::updateTrackersFromURL);
 
     if (isAddTrackersFromURLEnabled())
@@ -1679,6 +1682,7 @@ void SessionImpl::endStartup(ResumeSessionContext *context)
 
         // Regular saving of fastresume data
         connect(m_resumeDataTimer, &QTimer::timeout, this, &SessionImpl::generateResumeData);
+        m_resumeDataTimer->setTimerType(Qt::VeryCoarseTimer);
         const int saveInterval = saveResumeDataInterval();
         if (saveInterval > 0)
         {
@@ -1687,6 +1691,7 @@ void SessionImpl::endStartup(ResumeSessionContext *context)
         }
 
         auto wakeupCheckTimer = new QTimer(this);
+        wakeupCheckTimer->setTimerType(Qt::CoarseTimer);
         connect(wakeupCheckTimer, &QTimer::timeout, this, [this]
         {
             const bool hasSystemSlept = m_wakeupCheckTimestamp.durationElapsed() > 100s;

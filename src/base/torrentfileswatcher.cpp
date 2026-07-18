@@ -317,6 +317,9 @@ TorrentFilesWatcher::Worker::Worker(QFileSystemWatcher *watcher)
     , m_watchTimer {new QTimer(this)}
     , m_retryTorrentTimer {new QTimer(this)}
 {
+    m_watchTimer->setTimerType(Qt::CoarseTimer);
+    m_retryTorrentTimer->setTimerType(Qt::CoarseTimer);
+
     connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this](const QString &path)
     {
         scheduleWatchedFolderProcessing(Path(path));

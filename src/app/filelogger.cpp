@@ -52,6 +52,7 @@ FileLogger::FileLogger(const Path &path, const bool backup
 {
     m_flusher.setInterval(FLUSH_INTERVAL);
     m_flusher.setSingleShot(true);
+    m_flusher.setTimerType(Qt::CoarseTimer);
     connect(&m_flusher, &QTimer::timeout, this, &FileLogger::flushLog);
 
     setPath(path);

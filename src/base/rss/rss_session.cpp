@@ -96,6 +96,7 @@ Session::Session()
     load();
 
     m_refreshTimer.setSingleShot(true);
+    m_refreshTimer.setTimerType(Qt::CoarseTimer);
     connect(&m_refreshTimer, &QTimer::timeout, this, &Session::refresh);
     if (isProcessingEnabled())
         refresh();

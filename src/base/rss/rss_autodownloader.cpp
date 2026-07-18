@@ -584,7 +584,7 @@ void AutoDownloader::store()
 void AutoDownloader::storeDeferred()
 {
     if (!m_savingTimer.isActive())
-        m_savingTimer.start(5 * 1000, this);
+        m_savingTimer.start(5 * 1000, Qt::CoarseTimer, this);
 }
 
 bool AutoDownloader::isProcessingEnabled() const

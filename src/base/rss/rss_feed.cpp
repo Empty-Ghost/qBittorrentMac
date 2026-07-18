@@ -322,7 +322,7 @@ void Feed::store()
 void Feed::storeDeferred()
 {
     if (!m_savingTimer.isActive())
-        m_savingTimer.start(5 * 1000, this);
+        m_savingTimer.start(5 * 1000, Qt::CoarseTimer, this);
 }
 
 bool Feed::addArticle(const QVariantHash &articleData)

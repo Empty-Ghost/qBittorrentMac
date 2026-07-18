@@ -54,6 +54,7 @@ SettingsStorage::SettingsStorage()
 
     m_timer.setSingleShot(true);
     m_timer.setInterval(5s);
+    m_timer.setTimerType(Qt::CoarseTimer);
     connect(&m_timer, &QTimer::timeout, this, &SettingsStorage::save);
 }
 

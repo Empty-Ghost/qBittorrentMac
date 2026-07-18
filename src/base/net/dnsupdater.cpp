@@ -54,6 +54,7 @@ DNSUpdater::DNSUpdater(QObject *parent)
 
     // Start IP checking timer
     m_ipCheckTimer.setInterval(IP_CHECK_INTERVAL);
+    m_ipCheckTimer.setTimerType(Qt::VeryCoarseTimer);
     connect(&m_ipCheckTimer, &QTimer::timeout, this, &DNSUpdater::checkPublicIP);
     m_ipCheckTimer.start();
 
