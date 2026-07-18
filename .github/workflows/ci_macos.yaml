@@ -11,7 +11,7 @@ concurrency:
 jobs:
   ci:
     name: Build
-    runs-on: macos-15
+    runs-on: macos-26
     permissions:
       actions: write
 
@@ -40,12 +40,19 @@ jobs:
       SYFT_VERSION: "1.48.0"
       OPENSSL_VERSION: "3.5.7"
       ZLIB_VERSION: "1.3.2"
+      MACOSX_DEPLOYMENT_TARGET: "26.0"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+
+      - name: Verify macOS build host
+        run: |
+          test "$(uname -m)" = "arm64"
+          test "$(sw_vers -productVersion | cut -d. -f1)" = "26"
+          test "$(xcodebuild -version | awk '/^Xcode / { split($2, version, "."); print version[1] }')" = "26"
 
       - name: Install pinned build tools
         run: |
@@ -78,24 +85,11 @@ jobs:
             "$tools_dir/extract/ccache-${CCACHE_VERSION}-darwin/ccache" \
             "$tools_dir/bin/ccache"
 
-          case "$(uname -m)" in
-            arm64)
-              syft_arch="arm64"
-              syft_sha256="fef3e6d5df336a0a4c3e421e503119d1e221cf82a3ef5e426a791fcd81667e87"
-              ;;
-            x86_64)
-              syft_arch="amd64"
-              syft_sha256="dc7b2135fa5591003596df4ddb3408f499b68174f5e7dc1c77a373b753463182"
-              ;;
-            *)
-              echo "Unsupported macOS architecture: $(uname -m)" >&2
-              exit 1
-              ;;
-          esac
           curl --fail --location --retry 3 \
             --output "$tools_dir/syft-darwin.tar.gz" \
-            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_darwin_${syft_arch}.tar.gz"
-          echo "$syft_sha256  $tools_dir/syft-darwin.tar.gz" | shasum -a 256 -c -
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_darwin_arm64.tar.gz"
+          echo "fef3e6d5df336a0a4c3e421e503119d1e221cf82a3ef5e426a791fcd81667e87  $tools_dir/syft-darwin.tar.gz" \
+            | shasum -a 256 -c -
           tar -xzf "$tools_dir/syft-darwin.tar.gz" -C "$tools_dir/bin" syft
           chmod 0755 "$tools_dir/bin/syft"
 
@@ -128,19 +122,11 @@ jobs:
             | shasum -a 256 -c -
           tar -xzf "$sources_dir/openssl.tar.gz" -C "$sources_dir/openssl" --strip-components=1
 
-          case "$(uname -m)" in
-            arm64) openssl_target="darwin64-arm64-cc" ;;
-            x86_64) openssl_target="darwin64-x86_64-cc" ;;
-            *)
-              echo "Unsupported macOS architecture: $(uname -m)" >&2
-              exit 1
-              ;;
-          esac
           pushd "$sources_dir/openssl"
-          ./Configure "$openssl_target" no-shared no-module no-tests \
+          ./Configure darwin64-arm64-cc no-shared no-module no-tests \
             --prefix="$OPENSSL_ROOT_DIR" \
             --openssldir="$OPENSSL_ROOT_DIR/ssl" \
-            -mmacosx-version-min=13.0
+            -mmacosx-version-min="$MACOSX_DEPLOYMENT_TARGET"
           make -s -j"$(sysctl -n hw.logicalcpu)"
           make -s install_sw
           popd
@@ -160,7 +146,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$ZLIB_ROOT" \
             -DCMAKE_MAKE_PROGRAM="${RUNNER_TEMP}/qbt-build-tools/bin/ninja" \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
             -DZLIB_BUILD_SHARED=OFF \
             -DZLIB_BUILD_STATIC=ON \
             -DZLIB_BUILD_TESTING=OFF
@@ -235,7 +222,8 @@ jobs:
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DCMAKE_INSTALL_PREFIX="${{ env.libtorrent_install_path }}" \
             -DCMAKE_MAKE_PROGRAM="${RUNNER_TEMP}/qbt-build-tools/bin/ninja" \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
             -DBoost_DIR="${{ env.boost_path }}/lib/cmake/Boost-1.91.0" \
             -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
             -DOPENSSL_USE_STATIC_LIBS=TRUE \
@@ -255,7 +243,8 @@ jobs:
             -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DCMAKE_MAKE_PROGRAM="${RUNNER_TEMP}/qbt-build-tools/bin/ninja" \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
             -DBoost_DIR="${{ env.boost_path }}/lib/cmake/Boost-1.91.0" \
             -DCMAKE_PREFIX_PATH="${{ env.libtorrent_install_path }}" \
             -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
@@ -283,7 +272,23 @@ jobs:
           pushd build
           # packaging
           macdeployqt "$appName.app" -no-strip
-          # Verify that the bundle is self-contained and supports the selected macOS floor.
+          # Qt distributes universal macOS archives. Keep only the arm64 slice
+          # in copied frameworks and plugins before validation and signing.
+          while IFS= read -r -d '' bundle_file; do
+            if ! file "$bundle_file" | grep -q "Mach-O"; then
+              continue
+            fi
+
+            architectures="$(lipo -archs "$bundle_file")"
+            if [ "$architectures" != "arm64" ]; then
+              permissions="$(stat -f '%Lp' "$bundle_file")"
+              lipo "$bundle_file" -thin arm64 -output "$bundle_file.arm64"
+              chmod "$permissions" "$bundle_file.arm64"
+              mv "$bundle_file.arm64" "$bundle_file"
+            fi
+          done < <(find "$appName.app" -type f -print0)
+          # Verify that the bundle is self-contained and arm64-only, and that
+          # bundled binaries do not require a newer macOS release than the app.
           mach_o_count=0
           while IFS= read -r -d '' bundle_file; do
             if ! file "$bundle_file" | grep -q "Mach-O"; then
@@ -291,6 +296,11 @@ jobs:
             fi
 
             mach_o_count=$((mach_o_count + 1))
+            architectures="$(lipo -archs "$bundle_file")"
+            if [ "$architectures" != "arm64" ]; then
+              echo "$bundle_file has unsupported architectures: $architectures" >&2
+              exit 1
+            fi
             if otool -L "$bundle_file" | grep -E '/opt/homebrew|/usr/local'; then
               echo "External package-manager dependency found in $bundle_file" >&2
               exit 1
@@ -299,9 +309,9 @@ jobs:
             while IFS= read -r minimum_version; do
               if ! awk -v version="$minimum_version" 'BEGIN {
                 split(version, actual, ".")
-                exit !((actual[1] < 13) || ((actual[1] == 13) && (actual[2] == 0)))
+                exit !((actual[1] < 26) || ((actual[1] == 26) && (actual[2] == 0)))
               }'; then
-                echo "$bundle_file requires macOS $minimum_version, above the 13.0 floor" >&2
+                echo "$bundle_file requires macOS $minimum_version, above the 26.0 target" >&2
                 exit 1
               fi
             done < <(otool -l "$bundle_file" | awk '
@@ -311,6 +321,12 @@ jobs:
             ')
           done < <(find "$appName.app" -type f -print0)
           test "$mach_o_count" -gt 0
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$appName.app/Contents/Info.plist")" = "$MACOSX_DEPLOYMENT_TARGET"
+          test "$(otool -l "$appName.app/Contents/MacOS/$appName" | awk '
+            $1 == "cmd" { command = $2 }
+            command == "LC_BUILD_VERSION" && $1 == "minos" { print $2; exit }
+            command == "LC_VERSION_MIN_MACOSX" && $1 == "version" { print $2; exit }
+          ')" = "$MACOSX_DEPLOYMENT_TARGET"
           # code signing
           xattr -cr "$appName.app"
           codesign --force --sign - \

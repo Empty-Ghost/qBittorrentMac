@@ -56,6 +56,7 @@
 #include <QStatusBar>
 #include <QString>
 #include <QTimer>
+#include <QToolButton>
 
 #ifdef Q_OS_WIN
 #include <QCryptographicHash>
@@ -154,6 +155,15 @@ MainWindow::MainWindow(IGUIApplication *app, const WindowState initialState, con
 #endif // Q_OS_MACOS
 {
     m_ui->setupUi(this);
+
+#ifdef Q_OS_MACOS
+    // Qt uses a compact control font for macOS toolbars. Use the regular
+    // application font so text-only toolbar actions remain easy to read.
+    m_ui->toolBar->setFont(font());
+    for (QToolButton *button : m_ui->toolBar->findChildren<QToolButton *>())
+        button->setFont(font());
+    m_ui->menubar->setFont(font());
+#endif // Q_OS_MACOS
 
     Preferences *const pref = Preferences::instance();
     m_uiLocked = pref->isUILocked();
