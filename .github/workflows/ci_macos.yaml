@@ -31,15 +31,18 @@ jobs:
     env:
       boost_path: "${{ github.workspace }}/../boost"
       libtorrent_path: "${{ github.workspace }}/../libtorrent"
+      NINJA_VERSION: "1.13.2"
+      CCACHE_VERSION: "4.13.6"
+      SYFT_VERSION: "1.48.0"
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Install dependencies
-        uses: nick-fields/retry@v4
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
         env:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
           HOMEBREW_NO_INSTALL_CLEANUP: 1
@@ -52,11 +55,61 @@ jobs:
             brew install \
               openssl@3.5 zlib
             brew list --versions openssl@3.5 zlib
-            # preinstalled on the image: cmake ninja
+            # CMake is preinstalled on the image.
+
+      - name: Install pinned build tools
+        run: |
+          tools_dir="${RUNNER_TEMP}/qbt-build-tools"
+          mkdir -p "$tools_dir/bin" "$tools_dir/extract"
+
+          curl --fail --location --retry 3 \
+            --output "$tools_dir/ninja-mac.zip" \
+            "https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
+          echo "c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b  $tools_dir/ninja-mac.zip" \
+            | shasum -a 256 -c -
+          unzip -q "$tools_dir/ninja-mac.zip" -d "$tools_dir/extract/ninja"
+          install -m 0755 "$tools_dir/extract/ninja/ninja" "$tools_dir/bin/ninja"
+
+          curl --fail --location --retry 3 \
+            --output "$tools_dir/ccache-darwin.tar.gz" \
+            "https://github.com/ccache/ccache/releases/download/v${CCACHE_VERSION}/ccache-${CCACHE_VERSION}-darwin.tar.gz"
+          echo "0274210ec9c9936ed5711d59b0de3167a51216a588ddde35f6bc828f366fe6d9  $tools_dir/ccache-darwin.tar.gz" \
+            | shasum -a 256 -c -
+          tar -xzf "$tools_dir/ccache-darwin.tar.gz" -C "$tools_dir/extract"
+          install -m 0755 \
+            "$tools_dir/extract/ccache-${CCACHE_VERSION}-darwin/ccache" \
+            "$tools_dir/bin/ccache"
+
+          case "$(uname -m)" in
+            arm64)
+              syft_arch="arm64"
+              syft_sha256="fef3e6d5df336a0a4c3e421e503119d1e221cf82a3ef5e426a791fcd81667e87"
+              ;;
+            x86_64)
+              syft_arch="amd64"
+              syft_sha256="dc7b2135fa5591003596df4ddb3408f499b68174f5e7dc1c77a373b753463182"
+              ;;
+            *)
+              echo "Unsupported macOS architecture: $(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          curl --fail --location --retry 3 \
+            --output "$tools_dir/syft-darwin.tar.gz" \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_darwin_${syft_arch}.tar.gz"
+          echo "$syft_sha256  $tools_dir/syft-darwin.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$tools_dir/syft-darwin.tar.gz" -C "$tools_dir/bin" syft
+          chmod 0755 "$tools_dir/bin/syft"
+
+          echo "$tools_dir/bin" >> "$GITHUB_PATH"
+          test "$("$tools_dir/bin/ninja" --version)" = "$NINJA_VERSION"
+          test "$("$tools_dir/bin/ccache" --version | head -n 1)" = "ccache version $CCACHE_VERSION"
+          "$tools_dir/bin/syft" version | grep -F "Version:       $SYFT_VERSION"
 
       - name: Setup ccache
-        uses: Chocobo1/setup-ccache-action@v1
+        uses: Chocobo1/setup-ccache-action@802ec72ba1d54bbf75c52f45367253d6abec30f5 # v1.5.8
         with:
+          install_ccache: false
           store_cache: ${{ (github.repository != 'qbittorrent/qBittorrent') || (github.ref == 'refs/heads/master') }}
           update_packager_index: false
           ccache_options: |
@@ -83,14 +136,29 @@ jobs:
           ./bootstrap.sh
           ./b2 stage --stagedir=./ --with-headers
 
+      - name: Setup Python for Qt installer
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.14.6"
+
+      - name: Prepare Qt archive verification
+        run: mkdir -p "${{ runner.temp }}/qt-archives"
+
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
           version: ${{ matrix.qt_version }}
           archives: qtbase qtdeclarative qtsvg qttools
           modules: qtimageformats
           # Not sure why Qt made a hard dependency on qtdeclarative, try removing it when Qt > 6.4.0
-          cache: true
+          cache: false
+          aqtversion: "==3.3.0"
+          py7zrversion: "==1.1.3"
+          extra: "--keep --archive-dest ${{ runner.temp }}/qt-archives"
+
+      - name: Verify Qt archives
+        working-directory: ${{ runner.temp }}/qt-archives
+        run: shasum -a 256 -c "${{ github.workspace }}/.github/workflows/helper/qt-6.11.1-macos.sha256"
 
       - name: Install libtorrent
         run: |
@@ -177,9 +245,16 @@ jobs:
           cp build/compile_commands.json upload/cmake
           mkdir upload/cmake/libtorrent
           cp ${{ env.libtorrent_path }}/build/compile_commands.json upload/cmake/libtorrent
+          appVersion="$(/usr/libexec/PlistBuddy \
+            -c "Print :CFBundleShortVersionString" \
+            "build/$appName.app/Contents/Info.plist")"
+          syft scan "dir:build/$appName.app" \
+            --source-name "$appName" \
+            --source-version "$appVersion" \
+            --output "cyclonedx-json=upload/$appName.cdx.json"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: qBittorrent-CI_macOS_${{ matrix.qbt_gui }}_libtorrent-${{ matrix.libtorrent.version }}_Qt-${{ matrix.qt_version }}
           path: upload

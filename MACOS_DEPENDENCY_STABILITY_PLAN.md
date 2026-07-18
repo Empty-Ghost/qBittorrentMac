@@ -22,10 +22,10 @@ Implementation began on 2026-07-18. Progress and any revised decisions are recor
 - Phase 1.3 is complete for the search engine: a committed uv lock file, pinned uv setup, `uv sync --locked`, and Python update automation were added and validated with Python 3.14.6. The search engine runtime floor remains Python 3.9 for now; build-tool selection does not silently raise an end-user runtime requirement.
 - The primary macOS CI matrix now uses only Qt 6.11.1, libtorrent 2.1.0, Boost 1.91.0, OpenSSL 3.5.7, and zlib 1.3.2. Boost downloads are checksum-verified and the libtorrent tag is verified against its selected commit.
 - Qt 6.11.1 sets the product floor to macOS 13. The CMake default, CI configuration, and `LSMinimumSystemVersion` now use the same explicit `13.0` value.
-- Phase 1.1 is in progress: `DEPENDENCIES.md` records selected versions, roles, sources, hashes, licenses, support policy, architectures, ownership, and update procedure. Qt archive integrity, Ninja/ccache pins, and release SBOM generation remain open.
+- Phase 1.1 is complete: `DEPENDENCIES.md` records selected versions, roles, sources, hashes, licenses, support policy, architectures, ownership, and update procedure. Ninja 1.13.2 and ccache 4.13.6 use checksum-verified universal macOS archives in CI. Syft 1.48.0 generates a CycloneDX SBOM from each final app bundle and retains it with CI artifacts. Qt 6.11.1 archives are retained and verified against a committed SHA-256 manifest using exact aqtinstall 3.3.0 and py7zr 1.1.3 versions.
 - Local validation completed with CMake 4.4.0, Qt 6.11.1, libtorrent 2.1.0, and zlib 1.3.2: the full GUI bundle built and all 19 native tests passed. Web UI tests/lint/format and search-engine type/lint/build checks also passed.
 - Release dependency builds must not reuse arbitrary local Homebrew bottles: the local bottles were built for macOS 26 and produced deployment-target warnings. CI still needs a clean-machine bundle verification proving every shipped dependency targets macOS 13 and no Homebrew paths remain.
-- GitHub Actions that are newly introduced are pinned to immutable commits. Converting all pre-existing action tags is still pending.
+- Phase 1.4 is complete for GitHub Actions: every executable third-party action reference is pinned to an immutable commit, with release comments retained for Dependabot updates. Runner-image and Homebrew inputs remain separate open work.
 
 ## Version policy
 
