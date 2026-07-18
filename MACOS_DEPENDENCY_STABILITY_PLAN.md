@@ -1,31 +1,32 @@
-# macOS dependency, stability, and efficiency upgrade plan
+# macOS 26 Apple silicon dependency, stability, and efficiency upgrade plan
 
 Status: in progress
 
 Prepared: 2026-07-18
 
-Scope: qBittorrent macOS builds, direct and vendored dependencies, developer tooling, packaging, runtime stability, and resource use
+Scope: qBittorrent macOS 26 builds for Apple silicon (`arm64`), direct and vendored dependencies, developer tooling, packaging, runtime stability, and resource use
 
 ## Goal
 
-Produce reproducible macOS builds using the newest supportable long-term-support (LTS) releases where an upstream project offers an LTS channel, and the newest stable release otherwise. Improve stability and lower CPU, memory, disk, and energy use without changing BitTorrent behavior or reducing compatibility silently.
+Produce reproducible, native `arm64` builds for macOS 26 using the newest supportable long-term-support (LTS) releases where an upstream project offers an LTS channel, and the newest stable release otherwise. Improve stability and lower CPU, memory, disk, and energy use without changing BitTorrent behavior. macOS 26 and Apple silicon are deliberate product requirements; Intel Macs and earlier macOS releases are outside this plan rather than being dropped silently.
 
 Implementation began on 2026-07-18. Progress and any revised decisions are recorded below.
 
 ## Implementation decisions and progress
 
 - Default to one latest selected version in build and CI configuration instead of maintaining older compatibility lanes. Older non-macOS configurations may be removed as the macOS-only build direction becomes concrete.
+- Target macOS 26.0 and Apple silicon exclusively. Release artifacts, CI, dependency builds, signing, notarization, and validation must use `arm64`; do not produce Intel (`x86_64`) or universal binaries.
 - Selected the public latest-stable Qt path (6.11.1) for the primary macOS build. Qt 6.8 LTS is not the default because its newest patches are not publicly available.
 - Selected libtorrent 2.1.0 and Boost 1.91.0 as the only primary macOS dependency pair. Compatibility lanes are no longer a prerequisite.
 - Selected Node.js 24.18.0 LTS with npm 11.12.1 and Python 3.14.6 with uv 0.11.29 for deterministic developer-tool environments.
 - Phase 1.2 is complete: exact JavaScript tool versions, an immutable qBittorrent ESLint plugin revision, a committed npm lock file, `npm ci`, and npm update automation were added and validated.
 - Phase 1.3 is complete for the search engine: a committed uv lock file, pinned uv setup, `uv sync --locked`, and Python update automation were added and validated with Python 3.14.6. The search engine runtime floor remains Python 3.9 for now; build-tool selection does not silently raise an end-user runtime requirement.
 - The primary macOS CI matrix now uses only Qt 6.11.1, libtorrent 2.1.0, Boost 1.91.0, OpenSSL 3.5.7, and zlib 1.3.2. Boost downloads are checksum-verified and the libtorrent tag is verified against its selected commit.
-- Qt 6.11.1 sets the product floor to macOS 13. The CMake default, CI configuration, and `LSMinimumSystemVersion` now use the same explicit `13.0` value.
-- Phase 1.1 is complete: `DEPENDENCIES.md` records selected versions, roles, sources, hashes, licenses, support policy, architectures, ownership, and update procedure. Ninja 1.13.2 and ccache 4.13.6 use checksum-verified universal macOS archives in CI. Syft 1.48.0 generates a CycloneDX SBOM from each final app bundle and retains it with CI artifacts. Qt 6.11.1 archives are retained and verified against a committed SHA-256 manifest using exact aqtinstall 3.3.0 and py7zr 1.1.3 versions.
+- The previous implementation aligned the product floor at macOS 13. The revised target requires the CMake default, dependency builds, CI configuration, packaging checks, and `LSMinimumSystemVersion` to move together to the explicit `26.0` value.
+- Phase 1.1 is complete: `DEPENDENCIES.md` records selected versions, roles, sources, hashes, licenses, support policy, architectures, ownership, and update procedure. Ninja 1.13.2 and ccache 4.13.6 currently use checksum-verified universal macOS archives in CI; select or extract only their `arm64` slices for the revised target. Syft 1.48.0 generates a CycloneDX SBOM from each final app bundle and retains it with CI artifacts. Qt 6.11.1 archives are retained and verified against a committed SHA-256 manifest using exact aqtinstall 3.3.0 and py7zr 1.1.3 versions.
 - Local validation completed with CMake 4.4.0, Qt 6.11.1, libtorrent 2.1.0, and zlib 1.3.2: the full GUI bundle built and all 19 native tests passed. Web UI tests/lint/format and search-engine type/lint/build checks also passed.
-- Release dependency builds must not reuse arbitrary local Homebrew bottles: the local bottles were built for macOS 26 and produced deployment-target warnings. CI still needs a clean-machine bundle verification proving every shipped dependency targets macOS 13 and no Homebrew paths remain.
-- Phase 1.4 is complete for GitHub Actions: every executable third-party action reference is pinned to an immutable commit, with release comments retained for Dependabot updates. Runner-image and Homebrew inputs remain separate open work.
+- Release dependency builds no longer use Homebrew bottles: CI builds checksum-verified OpenSSL 3.5.7 and zlib 1.3.2 sources as static libraries. These builds and the packaging gate must be revised from macOS 13 to macOS 26 and must reject non-`arm64` Mach-O files as well as dependencies from `/opt/homebrew` or `/usr/local`; hosted clean-machine execution remains pending.
+- Phase 1.4 currently pins the primary runner to `macos-15`, every executable third-party action to an immutable commit, CMake 4.4.0 to a verified universal archive, and OpenSSL/zlib to verified source builds. Move the primary build to a macOS 26 runner with the selected Xcode 26 toolchain, consume only `arm64` tools, and replace the forward-compatibility lane with the next available macOS/Xcode preview lane.
 
 ## Version policy
 
@@ -33,7 +34,7 @@ Implementation began on 2026-07-18. Progress and any revised decisions are recor
 
 1. Use the latest patch of the newest upstream LTS branch for Qt, OpenSSL, and Node.js.
 2. Use the latest stable release for projects without an LTS program: libtorrent, Boost, zlib, CMake, Python, Lua, and developer tools.
-3. Keep minimum supported versions separate from versions used to build release artifacts. Do not raise a minimum merely because CI uses a newer release.
+3. Keep minimum supported versions separate from versions used to build release artifacts. This plan deliberately sets the product minimum to macOS 26.0; do not raise it further merely because CI uses a newer release.
 4. Pin release and CI inputs to exact versions and integrity hashes. Test only the selected latest build versions unless a compatibility lane is explicitly restored.
 5. Upgrade one dependency family at a time and keep each change independently reversible.
 6. Do not use release candidates, nightly builds, or Homebrew `HEAD` revisions for release artifacts.
@@ -45,12 +46,12 @@ Versions below were verified against upstream or package-registry data on 2026-0
 | Component | Repository state | Proposed release target | Support decision |
 | --- | --- | --- | --- |
 | Qt | Minimum 6.6.0; macOS CI 6.11.1 | 6.11.1 stable | Qt 6.8.8 LTS patches are commercial-only. The public latest-stable release is the single primary macOS target. |
-| OpenSSL | Minimum 3.0.2; CI installs floating `openssl@3` | 3.5.7 LTS | OpenSSL 3.5 is supported through 2030-04-08. Do not use 3.6 merely because the floating Homebrew formula currently resolves to it. |
+| OpenSSL | Minimum 3.0.2; macOS CI builds verified 3.5.7 sources | 3.5.7 LTS | OpenSSL 3.5 is supported through 2030-04-08. The release build uses static libraries instead of a floating Homebrew formula. |
 | Node.js | CI pins 24.18.0 and npm 11.12.1 | 24.18.0 LTS | Update the exact patch through Dependabot-reviewed lock-file changes. |
 | libtorrent | Minimum 1.2.19 or 2.0.10; macOS CI pins 2.1.0 | 2.1.0 stable for primary macOS artifacts | No LTS channel. Older compatibility lanes were removed by project direction. |
 | Boost | Minimum 1.76; macOS CI pins 1.91.0 | 1.91.0 stable | The selected archive is verified by its upstream SHA-256. |
-| zlib | Minimum 1.2.11; CI installs a floating formula | 1.3.2 stable | No LTS channel. Record the resolved bottle or source hash. |
-| CMake | Minimum 3.16; runner provides an unpinned version | 4.4.0 stable for CI and local presets | CMake is a build tool, not a shipped library. For Apple builds, separately consider raising the macOS-only floor to 3.21.1, which Qt documents for Apple deployment. |
+| zlib | Minimum 1.2.11; macOS CI builds verified 1.3.2 sources | 1.3.2 stable | No LTS channel. Rebuild the static library as `arm64` with a macOS 26 deployment target. |
+| CMake | Minimum 3.16; macOS CI installs verified 4.4.0 | 4.4.0 stable for CI and local presets | CMake is a build tool, not a shipped library. For Apple builds, separately consider raising the macOS-only floor to 3.21.1, which Qt documents for Apple deployment. |
 | Python | `INSTALL` says 3.13+, search runtime floor is 3.9; search tooling CI pins 3.14.6 | 3.14.6 stable for tooling | Python has no LTS release. The runtime floor remains separate from the build-tool version. |
 | Lua | Vendored and excluded from normal review paths | Evaluate 5.5.0 stable; retain/update to 5.4.8 first if Lua 5.5 compatibility is incomplete | This is an ABI/API migration, not a patch-only update. It needs a plugin compatibility test before adoption. |
 | LuaBridge | Vendored; application reports a 3.0 version | Audit against the upstream LuaBridge3 tag in a dedicated vendor change | Upstream’s visible tag is still a release candidate. Do not replace known-good vendored code with a pre-release solely to increase a version number. |
@@ -78,7 +79,7 @@ Add one human-readable manifest containing:
 
 - release version, minimum supported version, source URL, SHA-256, license, and support/EOL date;
 - whether the component is linked into the app, bundled in the app, used at runtime, or build/test-only;
-- architecture availability for `arm64` and `x86_64`;
+- `arm64` architecture availability and confirmation that no `x86_64` slice is required or shipped;
 - the owner and update procedure for every vendored component;
 - a note when no upstream LTS channel exists.
 
@@ -143,10 +144,10 @@ Candidate development-tool versions as of the audit date:
 ### 1.4 Pin CI and Homebrew inputs
 
 - Pin GitHub Actions to immutable commit SHAs while retaining version comments for Dependabot.
-- Pin Xcode/macOS runner images where GitHub provides a stable label; keep one allowed-to-fail forward-compatibility job on `macos-latest`.
+- Pin the primary runner to a stable macOS 26 image with the selected Xcode 26 release; keep one allowed-to-fail job on the next available macOS/Xcode preview image.
 - Do not rely on a floating `openssl@3` formula for the LTS requirement. Use `openssl@3.5` or build verified 3.5.7 sources.
 - Capture formula versions and bottle hashes in the build log.
-- Add CMake presets for Apple Silicon debug/sanitizer builds and universal release builds.
+- Add CMake presets for native Apple silicon debug, sanitizer, and release builds with `CMAKE_OSX_ARCHITECTURES=arm64` and `CMAKE_OSX_DEPLOYMENT_TARGET=26.0`.
 
 ## Phase 2: upgrade dependency families
 
@@ -186,8 +187,8 @@ Perform these as separate, reviewable changes in this order.
 
 - Upgrade Node and JavaScript packages in compatible major-version groups.
 - Upgrade Python tooling from the committed lock file.
-- Test search plugins on clean Intel and Apple Silicon user accounts with no shell-initialization files.
-- Validate Python discovery without repeatedly modifying `PATH`; prefer a validated absolute executable and cover both `/opt/homebrew` and `/usr/local` installations.
+- Test search plugins on clean Apple silicon user accounts with no shell-initialization files.
+- Validate Python discovery without repeatedly modifying `PATH`; prefer a validated absolute executable and cover the Apple silicon `/opt/homebrew` installation without adding Intel `/usr/local` as a supported configuration.
 
 ### 2.6 Vendored libraries
 
@@ -263,17 +264,19 @@ References: [Apple timer guidance](https://developer.apple.com/library/archive/d
 
 ### Priority 1: harden Finder, notification, and shutdown integration
 
-- Preserve a regression test for the historical Qt event-loop crash associated with Finder reveal. Apple documents `activateFileViewerSelectingURLs:` as safe from any thread, but do not simplify the workaround without a stress test across supported Qt/macOS versions.
+- Preserve a regression test for the historical Qt event-loop crash associated with Finder reveal. Apple documents `activateFileViewerSelectingURLs:` as safe from any thread, but do not simplify the workaround without a stress test on the selected Qt release and macOS 26.
 - Use immutable URL collections for dispatched Finder work and an explicit quality-of-service class.
 - Handle notification authorization and delivery errors on a safe queue, with bounded logging.
-- Validate file and magnet associations using modern Uniform Type Identifier APIs on every supported macOS version.
+- Validate file and magnet associations using modern Uniform Type Identifier APIs on macOS 26.
 - Stress quit/restart/sleep actions while file moves, resume-data writes, notifications, and Finder operations are in flight.
 
-### Priority 2: improve build and packaging correctness
+### Priority 2: enforce the macOS 26 Apple silicon platform target
 
-- Set `CMAKE_OSX_DEPLOYMENT_TARGET` and `LSMinimumSystemVersion` to macOS 13, the minimum supported by the selected Qt 6.11 line.
-- Build and test `arm64` and `x86_64`; produce a universal artifact only if its size and test coverage are acceptable.
-- Build with the newest Xcode supported by the selected Qt line, plus one forward-compatibility Xcode lane.
+- Set `CMAKE_OSX_DEPLOYMENT_TARGET` and `LSMinimumSystemVersion` to `26.0`, and make CI fail if either value drifts.
+- Set `CMAKE_OSX_ARCHITECTURES=arm64` for all macOS presets and dependency builds. Produce one native Apple silicon artifact; do not build or merge an `x86_64` slice.
+- Build with the selected Xcode 26 toolchain supported by the selected Qt line, plus one allowed-to-fail lane for the next available Xcode release.
+- Recursively inspect the final app, frameworks, plugins, and helper executables with `lipo -archs`, `file`, and `otool`; fail packaging if any shipped Mach-O file is not `arm64`, contains an `x86_64` slice, or requires a macOS version newer than 26.0. Separately require the main executable and bundle metadata to declare 26.0 as their minimum.
+- Run clean-machine tests on macOS 26 Apple silicon and verify that launch does not invoke Rosetta or depend on an undeclared Intel-only helper.
 - Move Apple framework links to the targets that actually use them and remove unused links only after link-map verification.
 - Produce release builds with Hardened Runtime, a secure timestamp, Developer ID signing, notarization, and stapling.
 - Verify entitlements, nested code signatures, bundle identifiers, plugin paths, translations, CA certificates, and absence of writable executable content.
@@ -282,7 +285,7 @@ References: [Apple timer guidance](https://developer.apple.com/library/archive/d
 
 ### Baseline scenarios
 
-Capture results before implementation on both Apple Silicon and Intel where available:
+Capture results before implementation on macOS 26 Apple silicon. Use the same hardware class, power state, and OS build for comparable before/after measurements:
 
 1. clean launch with no torrents;
 2. restored session with 100, 1,000, and a practical maximum number of torrents;
@@ -319,7 +322,7 @@ A dependency or optimization change is ready only when:
 - the app passes a clean-machine bundle test with Homebrew temporarily unavailable;
 - no new sanitizer, analyzer, leak, hang, or signing finding is introduced;
 - sleep assertions always match active work and are cleared at shutdown;
-- no supported macOS/architecture regression is found;
+- no macOS 26 or `arm64` regression is found;
 - idle CPU, wakeups, memory, and disk writes do not regress beyond normal run-to-run variance;
 - a claimed resource improvement is supported by comparable before/after traces;
 - rollback instructions and the previous known-good pins are documented.
@@ -342,7 +345,7 @@ Suggested performance gates after baselines establish realistic variance:
 7. Audit and update vendored libraries in isolated changes.
 8. Fix macOS Objective-C ownership and sleep-inhibitor lifecycle.
 9. Implement measured Dock/menu/timer reductions.
-10. Harden universal packaging, signing, notarization, and clean-machine verification.
+10. Enforce `arm64`-only macOS 26 packaging, then harden signing, notarization, and clean-machine verification.
 11. Run full compatibility, sanitizer, sleep/wake, and soak gates before adopting the new release pins.
 
 ## Files expected to change during implementation
