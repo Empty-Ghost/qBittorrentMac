@@ -44,7 +44,11 @@ namespace MacUtils
         NSApp.dockTile.contentView = m_impl->view;
     }
 
-    Badger::~Badger() = default;
+    Badger::~Badger()
+    {
+        if (NSApp.dockTile.contentView == m_impl->view)
+            NSApp.dockTile.contentView = nil;
+    }
 
     void Badger::updateSpeed(const int64_t dlRate, const int64_t ulRate)
     {

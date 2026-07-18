@@ -216,36 +216,36 @@ namespace MacUtils
                               [NSBundle bundleForClass:[NSApplication class]],
                               @"")];
 
-            NSMenuItem *minimizeItem = [[[NSMenuItem alloc]
+            NSMenuItem *minimizeItem = [[NSMenuItem alloc]
                 initWithTitle:NSLocalizedStringFromTableInBundle(
                     @"Minimize",
                     @"MenuCommands",
                     [NSBundle bundleForClass:[NSApplication class]],
                     @"")
                 action:@selector(performMiniaturize:)
-                keyEquivalent:@"m"] autorelease];
+                keyEquivalent:@"m"];
             [nsWindowMenu addItem:minimizeItem];
 
-            NSMenuItem *zoomItem = [[[NSMenuItem alloc]
+            NSMenuItem *zoomItem = [[NSMenuItem alloc]
                 initWithTitle:NSLocalizedStringFromTableInBundle(
                     @"Zoom",
                     @"MenuCommands",
                     [NSBundle bundleForClass:[NSApplication class]],
                     @"")
                 action:@selector(performZoom:)
-                keyEquivalent:@""] autorelease];
+                keyEquivalent:@""];
             [nsWindowMenu addItem:zoomItem];
 
             [nsWindowMenu addItem:[NSMenuItem separatorItem]];
 
-            NSMenuItem *bringAllToFrontItem = [[[NSMenuItem alloc]
+            NSMenuItem *bringAllToFrontItem = [[NSMenuItem alloc]
                 initWithTitle:NSLocalizedStringFromTableInBundle(
                     @"Bring All to Front",
                     @"MenuCommands",
                     [NSBundle bundleForClass:[NSApplication class]],
                     @"")
                 action:@selector(arrangeInFront:)
-                keyEquivalent:@""] autorelease];
+                keyEquivalent:@""];
             [nsWindowMenu addItem:bringAllToFrontItem];
 
             // Set it as the Window menu for the application

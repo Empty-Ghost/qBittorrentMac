@@ -302,7 +302,7 @@ if (STACKTRACE)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    target_sources(qbt_gui PRIVATE
+    set(macosObjectiveCppSources
         macosdockbadge/badger.h
         macosdockbadge/badger.mm
         macosdockbadge/badgeview.h
@@ -315,6 +315,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         macosstatusitem/statusitem.mm
         macutilities.h
         macutilities.mm
+    )
+    set_source_files_properties(${macosObjectiveCppSources} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+
+    target_sources(qbt_gui PRIVATE
+        ${macosObjectiveCppSources}
         powermanagement/inhibitormacos.cpp
         powermanagement/inhibitormacos.h
         programupdater.cpp

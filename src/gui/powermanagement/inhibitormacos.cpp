@@ -31,16 +31,64 @@
 
 #include <QScopeGuard>
 
+namespace
+{
+    IOReturn createAssertion(const CFStringRef name, IOPMAssertionID *assertionID)
+    {
+        return ::IOPMAssertionCreateWithName(kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn
+            , name, assertionID);
+    }
+
+    IOReturn releaseAssertion(const IOPMAssertionID assertionID)
+    {
+        return ::IOPMAssertionRelease(assertionID);
+    }
+}
+
+InhibitorMacOS::InhibitorMacOS()
+    : InhibitorMacOS {createAssertion, releaseAssertion}
+{
+}
+
+InhibitorMacOS::InhibitorMacOS(const AssertionCreateFunction createAssertion
+    , const AssertionReleaseFunction releaseAssertion)
+    : m_createAssertion {createAssertion}
+    , m_releaseAssertion {releaseAssertion}
+{
+}
+
+InhibitorMacOS::~InhibitorMacOS()
+{
+    requestIdle();
+}
+
 bool InhibitorMacOS::requestBusy()
 {
+    if (m_assertionID != kIOPMNullAssertionID)
+        return true;
+
     const CFStringRef assertName = tr("PMMacOS", "qBittorrent is active").toCFString();
     [[maybe_unused]] const auto assertNameGuard = qScopeGuard([&assertName] { ::CFRelease(assertName); });
-    const IOReturn result = ::IOPMAssertionCreateWithName(kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn
-        , assertName, &m_assertionID);
-    return result == kIOReturnSuccess;
+
+    IOPMAssertionID assertionID = kIOPMNullAssertionID;
+    if ((m_createAssertion(assertName, &assertionID) != kIOReturnSuccess)
+        || (assertionID == kIOPMNullAssertionID))
+    {
+        return false;
+    }
+
+    m_assertionID = assertionID;
+    return true;
 }
 
 bool InhibitorMacOS::requestIdle()
 {
-    return ::IOPMAssertionRelease(m_assertionID) == kIOReturnSuccess;
+    if (m_assertionID == kIOPMNullAssertionID)
+        return true;
+
+    if (m_releaseAssertion(m_assertionID) != kIOReturnSuccess)
+        return false;
+
+    m_assertionID = kIOPMNullAssertionID;
+    return true;
 }

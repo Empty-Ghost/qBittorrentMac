@@ -36,3 +36,14 @@ foreach(testFile ${testFiles})
 
     add_dependencies(check "${testFilename}")
 endforeach()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    add_executable(testinhibitormacos
+        testinhibitormacos.cpp
+        ../src/gui/powermanagement/inhibitor.cpp
+        ../src/gui/powermanagement/inhibitormacos.cpp
+    )
+    target_link_libraries(testinhibitormacos PRIVATE Qt::Test qbt_base "-framework IOKit")
+    add_test(NAME testinhibitormacos COMMAND testinhibitormacos)
+    add_dependencies(check testinhibitormacos)
+endif()

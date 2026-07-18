@@ -37,11 +37,21 @@
 class InhibitorMacOS final : public Inhibitor
 {
     Q_DECLARE_TR_FUNCTIONS(InhibitorMacOS)
+    Q_DISABLE_COPY_MOVE(InhibitorMacOS)
 
 public:
+    using AssertionCreateFunction = IOReturn (*)(CFStringRef, IOPMAssertionID *);
+    using AssertionReleaseFunction = IOReturn (*)(IOPMAssertionID);
+
+    InhibitorMacOS();
+    InhibitorMacOS(AssertionCreateFunction createAssertion, AssertionReleaseFunction releaseAssertion);
+    ~InhibitorMacOS() override;
+
     bool requestBusy() override;
     bool requestIdle() override;
 
 private:
-    IOPMAssertionID m_assertionID {};
+    AssertionCreateFunction m_createAssertion = nullptr;
+    AssertionReleaseFunction m_releaseAssertion = nullptr;
+    IOPMAssertionID m_assertionID = kIOPMNullAssertionID;
 };

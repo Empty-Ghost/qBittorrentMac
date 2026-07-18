@@ -44,7 +44,7 @@ static CGSize kArrowSize;
 
 @interface BadgeView ()
 
-@property(nonatomic) NSMutableDictionary *fAttributes;
+@property(strong) NSMutableDictionary *fAttributes;
 
 @property(nonatomic) int64_t fDownloadRate;
 @property(nonatomic) int64_t fUploadRate;

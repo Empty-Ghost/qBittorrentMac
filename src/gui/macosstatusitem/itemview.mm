@@ -52,7 +52,8 @@ namespace
 
 - (instancetype)init
 {
-    if ((self = [super init])){
+    if ((self = [super init]))
+    {
         self.fDownloadRate = 0.0;
         self.fUploadRate = 0.0;
 
@@ -85,6 +86,12 @@ namespace
         self.statusItem.menu = self.statusMenu;
     }
     return self;
+}
+
+- (void)dealloc
+{
+    self.statusItem.menu = nil;
+    [[NSStatusBar systemStatusBar] removeStatusItem:self.statusItem];
 }
 
 - (BOOL)setRatesWithDownload:(int64_t)downloadRate upload:(int64_t)uploadRate
