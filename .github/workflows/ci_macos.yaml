@@ -20,22 +20,13 @@ jobs:
       matrix:
         libtorrent:
           - version: "2.1.0"
+            commit: "578e06824c3546f3371ab43967ab288a7e253eca"
             boost_major_version: "1"
             boost_minor_version: "91"
             boost_patch_version: "0"
             libt_build_flags: "-Dwebtorrent=ON"
-          - version: "2.0.13"
-            boost_major_version: "1"
-            boost_minor_version: "91"
-            boost_patch_version: "0"
-            libt_build_flags: ""
-          - version: "1.2.20"
-            boost_major_version: "1"
-            boost_minor_version: "86"
-            boost_patch_version: "0"
-            libt_build_flags: ""
         qbt_gui: ["GUI=ON", "GUI=OFF"]
-        qt_version: ["6.10.3"]
+        qt_version: ["6.11.1"]
 
     env:
       boost_path: "${{ github.workspace }}/../boost"
@@ -59,7 +50,8 @@ jobs:
           command: |
             brew update > /dev/null
             brew install \
-              openssl@3 zlib
+              openssl@3.5 zlib
+            brew list --versions openssl@3.5 zlib
             # preinstalled on the image: cmake ninja
 
       - name: Setup ccache
@@ -76,11 +68,16 @@ jobs:
           boost_url2="https://sourceforge.net/projects/boost/files/boost/${{ matrix.libtorrent.boost_major_version }}.${{ matrix.libtorrent.boost_minor_version }}.${{ matrix.libtorrent.boost_patch_version }}/boost_${{ matrix.libtorrent.boost_major_version }}_${{ matrix.libtorrent.boost_minor_version }}_${{ matrix.libtorrent.boost_patch_version }}.tar.gz"
           set +e
           curl -L -o "${{ runner.temp }}/boost.tar.gz" "$boost_url"
-          tar -xf "${{ runner.temp }}/boost.tar.gz" -C "${{ github.workspace }}/.."; _exitCode="$?"
+          echo "5734305f40a76c30f951c9abd409a45a2a19fb546efe4162119250bbe4d3a463  ${{ runner.temp }}/boost.tar.gz" | shasum -a 256 -c - \
+            && tar -xf "${{ runner.temp }}/boost.tar.gz" -C "${{ github.workspace }}/.."
+          _exitCode="$?"
           if [ "$_exitCode" -ne "0" ]; then
             curl -L -o "${{ runner.temp }}/boost.tar.gz" "$boost_url2"
-            tar -xf "${{ runner.temp }}/boost.tar.gz" -C "${{ github.workspace }}/.."; _exitCode="$?"
+            echo "5734305f40a76c30f951c9abd409a45a2a19fb546efe4162119250bbe4d3a463  ${{ runner.temp }}/boost.tar.gz" | shasum -a 256 -c - \
+              && tar -xf "${{ runner.temp }}/boost.tar.gz" -C "${{ github.workspace }}/.."
+            _exitCode="$?"
           fi
+          test "$_exitCode" -eq "0"
           mv "${{ github.workspace }}/.."/boost_* "${{ env.boost_path }}"
           cd "${{ env.boost_path }}"
           ./bootstrap.sh
@@ -104,6 +101,7 @@ jobs:
             https://github.com/arvidn/libtorrent.git \
             ${{ env.libtorrent_path }}
           cd ${{ env.libtorrent_path }}
+          test "$(git rev-parse HEAD)" = "${{ matrix.libtorrent.commit }}"
           cmake \
             -B build \
             -G "Ninja" \
@@ -111,7 +109,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_CXX_STANDARD=20 \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
             -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3.5)" \
+            -DZLIB_ROOT="$(brew --prefix zlib)" \
             -Ddeprecated-functions=OFF \
             ${{ matrix.libtorrent.libt_build_flags }}
           cmake --build build
@@ -126,7 +127,10 @@ jobs:
             -G "Ninja" \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
             -DBOOST_ROOT="${{ env.boost_path }}/lib/cmake" \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3.5)" \
+            -DZLIB_ROOT="$(brew --prefix zlib)" \
             -DTESTING=ON \
             -DVERBOSE_CONFIGURE=ON \
             -D${{ matrix.qbt_gui }}

@@ -5,27 +5,32 @@
     "type": "git",
     "url": "https://github.com/qbittorrent/qBittorrent.git"
   },
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "npm": "11.12.1"
+  },
+  "packageManager": "npm@11.12.1",
   "scripts": {
     "format": "js-beautify -r *.mjs private/*.html private/scripts/*.js private/views/*.html public/*.html public/scripts/*.js test/*/*.js && prettier --write **.css",
     "lint": "eslint --cache *.mjs private/*.html private/scripts/*.js private/views/*.html public/*.html public/scripts/*.js test/*/*.js && stylelint --cache **/*.css && html-validate private public",
     "test": "vitest run --dom"
   },
   "devDependencies": {
-    "@eslint/js": "*",
-    "@stylistic/eslint-plugin": "*",
-    "eslint": "*",
-    "eslint-plugin-html": "*",
-    "eslint-plugin-prefer-arrow-functions": "*",
-    "eslint-plugin-qbt-webui": "https://github.com/Chocobo1/eslint-plugin-qbt-webui/tarball/v1",
-    "eslint-plugin-regexp": "*",
-    "eslint-plugin-unicorn": "*",
-    "happy-dom": "*",
-    "html-validate": "*",
-    "js-beautify": "*",
-    "prettier": "*",
-    "stylelint": "*",
-    "stylelint-config-standard": "*",
-    "stylelint-order": "*",
-    "vitest": "*"
+    "@eslint/js": "10.0.1",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "eslint": "10.7.0",
+    "eslint-plugin-html": "8.1.4",
+    "eslint-plugin-prefer-arrow-functions": "3.10.1",
+    "eslint-plugin-qbt-webui": "https://github.com/Chocobo1/eslint-plugin-qbt-webui/archive/94897aa5586b05e0e4c9cb1ffa585d31f882339a.tar.gz",
+    "eslint-plugin-regexp": "3.1.1",
+    "eslint-plugin-unicorn": "72.0.0",
+    "happy-dom": "20.10.6",
+    "html-validate": "11.5.6",
+    "js-beautify": "2.0.3",
+    "prettier": "3.9.5",
+    "stylelint": "17.14.0",
+    "stylelint-config-standard": "40.0.0",
+    "stylelint-order": "8.1.1",
+    "vitest": "4.1.10"
   }
 }

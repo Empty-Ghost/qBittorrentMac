@@ -13,7 +13,7 @@
    1. Setup virtual environment and dependencies
 
       ```shell
-      uv sync
+      uv sync --locked
       ```
 
    2. Activate virtual environment

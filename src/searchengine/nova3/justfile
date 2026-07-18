@@ -1,4 +1,4 @@
-PY_FILES := `find . -maxdepth 1 -type f -name '*.py' ! -name 'socks.py' -printf '%P '`
+PY_FILES := `for file in *.py; do [ "$file" = 'socks.py' ] || printf '%s ' "$file"; done`
 
 # Show available recipes to run
 default:
@@ -20,7 +20,7 @@ check files=PY_FILES: fetch_aux
 # Fetch auxiliary files
 [private]
 fetch_aux:
-    #!/usr/bin/sh
+    #!/bin/sh
     if [ ! -f 'socks.pyi' ]; then
         curl -L -o socks.pyi "https://raw.githubusercontent.com/python/typeshed/refs/heads/main/stubs/PySocks/socks.pyi"
     fi

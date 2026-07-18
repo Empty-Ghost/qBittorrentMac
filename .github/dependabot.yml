@@ -26,3 +26,21 @@ updates:
       - "CI"
     schedule:
       interval: "monthly"
+
+  - package-ecosystem: "npm"
+    directory: "/src/webui/www"
+    commit-message:
+      prefix: "WebUI"
+    labels:
+      - "WebUI"
+    schedule:
+      interval: "monthly"
+
+  - package-ecosystem: "pip"
+    directory: "/src/searchengine/nova3"
+    commit-message:
+      prefix: "Python"
+    labels:
+      - "CI"
+    schedule:
+      interval: "monthly"

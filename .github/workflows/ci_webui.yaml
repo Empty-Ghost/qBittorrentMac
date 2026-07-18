@@ -28,11 +28,14 @@ jobs:
       - name: Setup nodejs
         uses: actions/setup-node@v6
         with:
-          node-version: 'lts/*'
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: src/webui/www/package-lock.json
 
       - name: Install tools
         run: |
-          npm install
+          npm install --global npm@11.12.1
+          npm ci
           npm ls
           echo "::group::npm ls --all"
           npm ls --all

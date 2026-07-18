@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR) # Policies <= CMP0097 default to NEW
 
+if (CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS deployment version")
+endif()
+
 project(qBittorrent
     DESCRIPTION "The qBittorrent BitTorrent client"
     HOMEPAGE_URL "https://www.qbittorrent.org/"

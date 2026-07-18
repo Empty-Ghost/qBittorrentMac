@@ -1,4 +1,5 @@
 *.egg-info
 *.lock
+!nova3/uv.lock
 *.pyc
 *.pyi
