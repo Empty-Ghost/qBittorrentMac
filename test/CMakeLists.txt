@@ -38,6 +38,15 @@ foreach(testFile ${testFiles})
 endforeach()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    add_executable(testmacosdockbadge
+        testmacosdockbadge.mm
+        ../src/gui/macosdockbadge/badgeview.mm
+    )
+    target_compile_options(testmacosdockbadge PRIVATE "-fobjc-arc")
+    target_link_libraries(testmacosdockbadge PRIVATE Qt::Test qbt_base "-framework AppKit")
+    add_test(NAME testmacosdockbadge COMMAND testmacosdockbadge)
+    add_dependencies(check testmacosdockbadge)
+
     add_executable(testinhibitormacos
         testinhibitormacos.cpp
         ../src/gui/powermanagement/inhibitor.cpp

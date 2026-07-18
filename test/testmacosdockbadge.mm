@@ -1,6 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
- * Copyright (C) 2023  Nick Korotysh <nick.korotysh@gmail.com>
+ * Copyright (C) 2026  The qBittorrent project
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,49 +26,35 @@
  * exception statement from your version.
  */
 
-#include "badger.h"
+#include <QObject>
+#include <QTest>
 
-#import "badgeview.h"
+#import "gui/macosdockbadge/badgeview.h"
 
-namespace MacUtils
+class TestMacOSDockBadge final : public QObject
 {
-    struct Badger::Impl
-    {
-        BadgeView *view = nullptr;
-        bool visible = false;
-    };
+    Q_OBJECT
+    Q_DISABLE_COPY_MOVE(TestMacOSDockBadge)
 
-    Badger::Badger()
-        : m_impl(std::make_unique<Impl>())
-    {
-        m_impl->view = [[BadgeView alloc] init];
-    }
+public:
+    TestMacOSDockBadge() = default;
 
-    Badger::~Badger()
-    {
-        if (NSApp.dockTile.contentView == m_impl->view)
-            NSApp.dockTile.contentView = nil;
-    }
+private slots:
+    void testFormattedRateChanges();
+};
 
-    void Badger::updateSpeed(const int64_t dlRate, const int64_t ulRate)
-    {
-        if (!m_impl->visible)
-            return;
+void TestMacOSDockBadge::testFormattedRateChanges()
+{
+    BadgeView *view = [[BadgeView alloc] init];
 
-        // only update if the badged values change
-        if ([m_impl->view setRatesWithDownload:dlRate upload:ulRate])
-            [NSApp.dockTile display];
-    }
-
-    void Badger::setVisible(const bool visible)
-    {
-        if (m_impl->visible == visible)
-            return;
-
-        m_impl->visible = visible;
-        if (!visible)
-            [m_impl->view setRatesWithDownload:0 upload:0];
-        NSApp.dockTile.contentView = visible ? m_impl->view : nil;
-        [NSApp.dockTile display];
-    }
+    QVERIFY(![view setRatesWithDownload:0 upload:0]);
+    QVERIFY([view setRatesWithDownload:1000 upload:1000]);
+    QVERIFY(![view setRatesWithDownload:1001 upload:1001]);
+    QVERIFY([view setRatesWithDownload:5000 upload:5000]);
+    QVERIFY([view setRatesWithDownload:0 upload:0]);
+    QVERIFY(![view setRatesWithDownload:0 upload:0]);
 }
+
+QTEST_APPLESS_MAIN(TestMacOSDockBadge)
+
+#include "testmacosdockbadge.moc"

@@ -39,9 +39,6 @@ namespace
 
 @interface ItemView ()
 
-@property(nonatomic) int64_t fDownloadRate;
-@property(nonatomic) int64_t fUploadRate;
-
 @property(strong) NSStatusItem *statusItem;
 
 @property(strong) NSMenu *statusMenu;
@@ -54,9 +51,6 @@ namespace
 {
     if ((self = [super init]))
     {
-        self.fDownloadRate = 0.0;
-        self.fUploadRate = 0.0;
-
         NSImage *icon = [NSImage imageNamed:@"qbittorrent_mac"];
         [icon setSize:NSMakeSize(16, 16)];
 
@@ -69,8 +63,8 @@ namespace
 
         self.statusMenu = [[NSMenu alloc] init];
 
-        const QString uploadString = Utils::Misc::friendlyUnit(self.fUploadRate, true);
-        const QString downloadString = Utils::Misc::friendlyUnit(self.fDownloadRate, true);
+        const QString uploadString = Utils::Misc::friendlyUnit(0, true);
+        const QString downloadString = Utils::Misc::friendlyUnit(0, true);
 
         NSString *uploadNSString = uploadString.toNSString();
         NSString *downloadNSString = downloadString.toNSString();
@@ -96,21 +90,22 @@ namespace
 
 - (BOOL)setRatesWithDownload:(int64_t)downloadRate upload:(int64_t)uploadRate
 {
-    if ((downloadRate == self.fDownloadRate) && (uploadRate == self.fUploadRate))
+    if (!self.statusItem.visible)
         return NO;
 
-    self.fDownloadRate = downloadRate;
-    self.fUploadRate = uploadRate;
-
-    const QString uploadString = Utils::Misc::friendlyUnit(self.fUploadRate, true);
-    const QString downloadString = Utils::Misc::friendlyUnit(self.fDownloadRate, true);
+    const QString uploadString = Utils::Misc::friendlyUnit(uploadRate, true);
+    const QString downloadString = Utils::Misc::friendlyUnit(downloadRate, true);
 
     NSString *uploadNSString = uploadString.toNSString();
     NSString *downloadNSString = downloadString.toNSString();
 
-    [self.statusStatsItem setTitle:[NSString stringWithFormat:@"%@ %@ · %@ %@",
-                                    kDownloadArrow, downloadNSString,
-                                    kUploadArrow, uploadNSString]];
+    NSString *title = [NSString stringWithFormat:@"%@ %@ · %@ %@",
+                       kDownloadArrow, downloadNSString,
+                       kUploadArrow, uploadNSString];
+    if ([self.statusStatsItem.title isEqualToString:title])
+        return NO;
+
+    self.statusStatsItem.title = title;
 
     return YES;
 }

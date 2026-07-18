@@ -1496,10 +1496,19 @@ void MainWindow::loadPreferences()
 #endif
 
 #ifdef Q_OS_MACOS
-    // Clear dock badge immediately if speed display is disabled
-    if (!pref->isSpeedInDockEnabled())
-        m_badger->updateSpeed(0, 0);
-    m_statusItem->setVisible(pref->isMacOSMenuBarIconEnabled());
+    const bool showDockSpeed = pref->isSpeedInDockEnabled();
+    const bool showMenuBarIcon = pref->isMacOSMenuBarIconEnabled();
+    m_badger->setVisible(showDockSpeed);
+    m_statusItem->setVisible(showMenuBarIcon);
+
+    if (showDockSpeed || showMenuBarIcon)
+    {
+        const BitTorrent::SessionStatus &status = BitTorrent::Session::instance()->status();
+        if (showDockSpeed)
+            m_badger->updateSpeed(status.payloadDownloadRate, status.payloadUploadRate);
+        if (showMenuBarIcon)
+            m_statusItem->updateSpeed(status.payloadDownloadRate, status.payloadUploadRate);
+    }
 #endif
 
     qDebug("GUI settings loaded");

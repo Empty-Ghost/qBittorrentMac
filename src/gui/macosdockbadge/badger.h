@@ -40,6 +40,7 @@ namespace MacUtils
         ~Badger();
 
         void updateSpeed(int64_t dlRate, int64_t ulRate);
+        void setVisible(bool visible);
 
     private:
         struct Impl;

@@ -46,8 +46,8 @@ static CGSize kArrowSize;
 
 @property(strong) NSMutableDictionary *fAttributes;
 
-@property(nonatomic) int64_t fDownloadRate;
-@property(nonatomic) int64_t fUploadRate;
+@property(copy) NSString *fDownloadText;
+@property(copy) NSString *fUploadText;
 
 @end
 
@@ -57,9 +57,6 @@ static CGSize kArrowSize;
 {
     if ((self = [super init]))
     {
-        _fDownloadRate = 0.0;
-        _fUploadRate = 0.0;
-
         NSShadow *stringShadow = [[NSShadow alloc] init];
         stringShadow.shadowOffset = NSMakeSize(2.0, -2.0);
         stringShadow.shadowBlurRadius = 4.0;
@@ -79,14 +76,20 @@ static CGSize kArrowSize;
 
 - (BOOL)setRatesWithDownload:(int64_t)downloadRate upload:(int64_t)uploadRate
 {
-    // only needs update if the badges were displayed or are displayed now
-    if ((self.fDownloadRate == downloadRate) && (self.fUploadRate == uploadRate))
-    {
-        return NO;
-    }
+    NSString *downloadText = (downloadRate > 0)
+        ? Utils::Misc::friendlyUnitCompact(downloadRate).toNSString() : nil;
+    NSString *uploadText = (uploadRate > 0)
+        ? Utils::Misc::friendlyUnitCompact(uploadRate).toNSString() : nil;
 
-    self.fDownloadRate = downloadRate;
-    self.fUploadRate = uploadRate;
+    const BOOL downloadUnchanged = downloadText
+        ? [self.fDownloadText isEqualToString:downloadText] : (self.fDownloadText == nil);
+    const BOOL uploadUnchanged = uploadText
+        ? [self.fUploadText isEqualToString:uploadText] : (self.fUploadText == nil);
+    if (downloadUnchanged && uploadUnchanged)
+        return NO;
+
+    self.fDownloadText = downloadText;
+    self.fUploadText = uploadText;
 
     return YES;
 }
@@ -95,13 +98,13 @@ static CGSize kArrowSize;
 {
     [NSApp.applicationIconImage drawInRect:rect fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1.0];
 
-    const BOOL upload = self.fUploadRate >= 0.1;
-    const BOOL download = self.fDownloadRate >= 0.1;
+    const BOOL upload = (self.fUploadText != nil);
+    const BOOL download = (self.fDownloadText != nil);
     CGFloat bottom = 0.0;
     if (download)
     {
         [self badge:kDownloadBadgeColor arrow:kDownloadArrow
-            string:Utils::Misc::friendlyUnitCompact(self.fDownloadRate).toNSString()
+            string:self.fDownloadText
             atHeight:bottom];
 
         if (upload)
@@ -112,7 +115,7 @@ static CGSize kArrowSize;
     if (upload)
     {
         [self badge:kUploadBadgeColor arrow:kUploadArrow
-            string:Utils::Misc::friendlyUnitCompact(self.fUploadRate).toNSString()
+            string:self.fUploadText
             atHeight:bottom];
     }
 }
